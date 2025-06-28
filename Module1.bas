@@ -42,9 +42,11 @@ Sub GenerateGanttChart()
     Dim progressStartCol As Long, progressEndCol As Long
     Dim progressShape As Shape
     Dim workerNum As Long
-    Dim taskList As Collection
+    Dim taskList() As task
     Dim task As task
     Dim i As Long, j As Long
+    Dim currentLevel As Integer, previousLevel As Integer
+    Dim taskCount As Long
     
     ' シートの設定
     Set ws = ActiveSheet
@@ -58,11 +60,16 @@ Sub GenerateGanttChart()
     workerNum = Range(TSK_WORKER_NUM).Value
     
     ' タスクリストの作成
-    Set taskList = New Collection
+    taskCount = lastRow - ROW_TSK_START + 1
+    ReDim taskList(1 To taskCount)
+    previousLevel = 0
+    i = 1
     
     ' タスクデータの読み込み
     For taskRow = ROW_TSK_START To lastRow
-        TaskName = ws.Cells(taskRow, COL_NAME).Value
+        Call GetName(taskRow, TaskName, currentLevel)
+        If TaskName = "" Then Exit For
+        
         TaskNo = ws.Cells(taskRow, COL_NO).Value
         taskPeriod = ws.Cells(taskRow, COL_PERIOD).Value
         taskPriority = ws.Cells(taskRow, COL_PRIORITY).Value
@@ -79,9 +86,17 @@ Sub GenerateGanttChart()
         task.PrevTasks = PrevTasks
         task.StartDate = StartDate
         task.Progress = Progress
+        task.isParent = False
+        
+        ' 階層情報の更新
+        If currentLevel > previousLevel Then
+            taskList(i-1).isParent = True
+        End If
         
         ' タスクリストに追加
-        taskList.Add task, TaskNo
+        taskList(i) = task
+        i = i + 1
+        previousLevel = currentLevel
     Next taskRow
     
     ' スケジューリング処理
@@ -90,9 +105,13 @@ Sub GenerateGanttChart()
     ' ガントチャートの描画
     For taskRow = 4 To lastRow
         TaskNo = ws.Cells(taskRow, COL_NO).Value
-        On Error Resume Next
-        Set task = taskList(TaskNo)
-        On Error GoTo 0
+        Set task = Nothing
+        For i = LBound(taskList) To UBound(taskList)
+            If taskList(i).TaskNo = TaskNo Then
+                Set task = taskList(i)
+                Exit For
+            End If
+        Next i
         
         If Not task Is Nothing Then
             ' タスクの描画
@@ -134,73 +153,83 @@ Function GetDateColumn(ws As Worksheet, dateRow As Long, startCol As Long, endCo
     GetDateColumn = -1
 End Function
 
-Sub ScheduleTasks(taskList As Collection, workerNum As Long)
-    Dim task As task
-    Dim scheduledTasks As Collection
+Sub ScheduleTasks(taskList() As task, workerNum As Long)
+    Dim scheduledTasks() As task
     Dim availableWorkers As Long
     Dim currentWeek As Date
-    Dim taskArray() As task
     Dim i As Long, j As Long
-    
-    ' タスク配列の作成
-    ReDim taskArray(1 To taskList.Count)
-    i = 1
-    For Each task In taskList
-        taskArray(i) = task
-        i = i + 1
-    Next task
+    Dim scheduledCount As Long
     
     ' タスク配列を優先度順にソート
-    For i = LBound(taskArray) To UBound(taskArray) - 1
-        For j = i + 1 To UBound(taskArray)
-            If taskArray(i).Priority > taskArray(j).Priority Then
-                Swap taskArray(i), taskArray(j)
+    For i = LBound(taskList) To UBound(taskList) - 1
+        For j = i + 1 To UBound(taskList)
+            If taskList(i).Priority > taskList(j).Priority Then
+                Swap taskList(i), taskList(j)
             End If
         Next j
     Next i
     
     ' スケジューリング
-    Set scheduledTasks = New Collection
+    ReDim scheduledTasks(1 To UBound(taskList))
+    scheduledCount = 0
     availableWorkers = workerNum
     currentWeek = Now
     
-    For i = LBound(taskArray) To UBound(taskArray)
-        If Not IsTaskScheduled(taskArray(i), scheduledTasks) Then
-            If CanStartTask(taskArray(i), scheduledTasks) Then
-                If availableWorkers > 0 Then
-                    taskArray(i).ScheduledStartDate = currentWeek
-                    scheduledTasks.Add taskArray(i), taskArray(i).TaskNo
-                    availableWorkers = availableWorkers - 1
+    For i = LBound(taskList) To UBound(taskList)
+        If Not IsTaskScheduled(taskList(i), scheduledTasks, scheduledCount) Then
+            If CanStartTask(taskList(i), scheduledTasks, scheduledCount) Then
+                If taskList(i).isParent Then
+                    ' 親タスクのスケジューリング
+                    taskList(i).ScheduledStartDate = currentWeek
+                    scheduledCount = scheduledCount + 1
+                    scheduledTasks(scheduledCount) = taskList(i)
                 Else
-                    currentWeek = currentWeek + 7
-                    availableWorkers = workerNum - 1
-                    taskArray(i).ScheduledStartDate = currentWeek
-                    scheduledTasks.Add taskArray(i), taskArray(i).TaskNo
+                    ' 通常タスクのスケジューリング
+                    If availableWorkers > 0 Then
+                        taskList(i).ScheduledStartDate = currentWeek
+                        scheduledCount = scheduledCount + 1
+                        scheduledTasks(scheduledCount) = taskList(i)
+                        availableWorkers = availableWorkers - 1
+                    Else
+                        currentWeek = currentWeek + 7
+                        availableWorkers = workerNum - 1
+                        taskList(i).ScheduledStartDate = currentWeek
+                        scheduledCount = scheduledCount + 1
+                        scheduledTasks(scheduledCount) = taskList(i)
+                    End If
                 End If
             End If
         End If
     Next i
 End Sub
 
-Function IsTaskScheduled(task As task, scheduledTasks As Collection) As Boolean
-    Dim scheduledTask As task
-    For Each scheduledTask In scheduledTasks
-        If scheduledTask.TaskNo = task.TaskNo Then
+Function IsTaskScheduled(task As task, scheduledTasks() As task, scheduledCount As Long) As Boolean
+    Dim i As Long
+    For i = 1 To scheduledCount
+        If scheduledTasks(i).TaskNo = task.TaskNo Then
             IsTaskScheduled = True
             Exit Function
         End If
-    Next scheduledTask
+    Next i
     IsTaskScheduled = False
 End Function
 
-Function CanStartTask(task As task, scheduledTasks As Collection) As Boolean
+Function CanStartTask(task As task, scheduledTasks() As task, scheduledCount As Long) As Boolean
     Dim prevTask As Variant
     Dim prevTaskScheduled As Boolean
+    Dim i As Long
     prevTaskScheduled = True
     
     If task.PrevTasks <> "" Then
         For Each prevTask In Split(task.PrevTasks, ",")
-            prevTaskScheduled = prevTaskScheduled And IsTaskScheduled(taskList(prevTask), scheduledTasks)
+            prevTaskScheduled = False
+            For i = 1 To scheduledCount
+                If scheduledTasks(i).TaskNo = prevTask Then
+                    prevTaskScheduled = True
+                    Exit For
+                End If
+            Next i
+            If Not prevTaskScheduled Then Exit For
         Next prevTask
     End If
     
@@ -213,7 +242,6 @@ Sub Swap(ByRef task1 As task, ByRef task2 As task)
     Set task1 = task2
     Set task2 = tempTask
 End Sub
-
 
 Sub RemoveArrows()
     Dim ws As Worksheet
@@ -235,5 +263,18 @@ Sub RemoveArrows()
     End If
 End Sub
 
-
-
+Sub GetName(taskRow As Integer, ByRef taskName As String, ByRef taskLevel As Integer)
+    Dim i As Long
+    Dim n As String
+    
+    taskName = ""
+    Set ws = ActiveSheet
+    
+    For i = COL_NAME To COL_NAME + 5
+        n = ws.Cells(taskRow, i).Value
+        If n <> "" Then
+            taskName = n
+            taskLevel = i - COL_NAME
+        End If
+    Next i
+End Sub
