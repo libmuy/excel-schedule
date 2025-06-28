@@ -1,4 +1,3 @@
-Attribute VB_Name = "Module1"
 Option Explicit
 
 '================================================================================
@@ -7,21 +6,21 @@ Option Explicit
 ' 実行可能平行タスク数
 Public Const TSK_WORKER_NUM As String = "P2"
 ' タスクのID
-Public Const COL_NO As Long = 1
+Public Const COL_NO As Long = 2
 ' タスク優先度、5段階（１～５）、1は最高優先度
-Public Const COL_PRIORITY As Long = 2
+Public Const COL_PRIORITY As Long = 3
 ' 先行タスクを定義する
-Public Const COL_PREV_TSK As Long = 3
+Public Const COL_PREV_TSK As Long = 4
 ' タスクを実施する期間（週単位）
-Public Const COL_PERIOD As Long = 4
+Public Const COL_PERIOD As Long = 5
 ' タスクの名前
-Public Const COL_NAME As Long = 5
+Public Const COL_NAME As Long = 6
 ' 実際にタスクを開始した日付
-Public Const COL_REAL_START As Long = 16
+Public Const COL_REAL_START As Long = 17
 ' 進捗率（％）
-Public Const COL_PROGRESS As Long = 17
+Public Const COL_PROGRESS As Long = 18
 ' 全体スケジュールの開始日付
-Public Const COL_START_DATE As Long = 18
+Public Const COL_START_DATE As Long = 19
 Public Const ROW_START_DATE As Long = 5
 ' タスクの開始行
 Public Const ROW_TSK_START As Long = 6
@@ -52,39 +51,37 @@ Sub GenerateGanttChart()
     RemoveArrows
     
     ' 最終行と最終列の取得
-    lastRow = ws.Cells(ws.Rows.Count, COL_NAME).End(xlUp).Row
+    lastRow = ws.Cells(ws.Rows.Count, COL_NO).End(xlUp).Row
     lastCol = ws.Cells(ROW_START_DATE, ws.Columns.Count).End(xlToLeft).Column
     
     ' 作業者数の取得
-    workerNum = ws.Cells(ROW_START_DATE, COL_REAL_START).Value
+    workerNum = Range(TSK_WORKER_NUM).Value
     
     ' タスクリストの作成
     Set taskList = New Collection
     
     ' タスクデータの読み込み
     For taskRow = ROW_TSK_START To lastRow
-        If ws.Cells(taskRow, COL_NAME).Value <> "" Then
-            TaskName = ws.Cells(taskRow, COL_NAME).Value
-            TaskNo = ws.Cells(taskRow, COL_NO).Value
-            taskPeriod = ws.Cells(taskRow, COL_PERIOD).Value
-            taskPriority = ws.Cells(taskRow, COL_PRIORITY).Value
-            PrevTasks = ws.Cells(taskRow, COL_PREV_TSK).Value
-            StartDate = ws.Cells(taskRow, COL_REAL_START).Value
-            Progress = ws.Cells(taskRow, COL_PROGRESS).Value / 100
-            
-            ' タスクオブジェクトの作成
-            Set task = New task
-            task.TaskNo = TaskNo
-            task.TaskName = TaskName
-            task.Period = taskPeriod
-            task.Priority = taskPriority
-            task.PrevTasks = PrevTasks
-            task.StartDate = StartDate
-            task.Progress = Progress
-            
-            ' タスクリストに追加
-            taskList.Add task, TaskNo
-        End If
+        TaskName = ws.Cells(taskRow, COL_NAME).Value
+        TaskNo = ws.Cells(taskRow, COL_NO).Value
+        taskPeriod = ws.Cells(taskRow, COL_PERIOD).Value
+        taskPriority = ws.Cells(taskRow, COL_PRIORITY).Value
+        PrevTasks = ws.Cells(taskRow, COL_PREV_TSK).Value
+        StartDate = ws.Cells(taskRow, COL_REAL_START).Value
+        Progress = ws.Cells(taskRow, COL_PROGRESS).Value / 100
+        
+        ' タスクオブジェクトの作成
+        Set task = New task
+        task.TaskNo = TaskNo
+        task.TaskName = TaskName
+        task.Period = taskPeriod
+        task.Priority = taskPriority
+        task.PrevTasks = PrevTasks
+        task.StartDate = StartDate
+        task.Progress = Progress
+        
+        ' タスクリストに追加
+        taskList.Add task, TaskNo
     Next taskRow
     
     ' スケジューリング処理
@@ -224,7 +221,7 @@ Sub RemoveArrows()
     Dim i As Long
     Dim prefix As String
     
-    prefix = "ZZZ"
+    prefix = "ScheduleArrow"
     Set ws = ActiveSheet
     
     If ws.Shapes.Count > 0 Then
@@ -234,7 +231,9 @@ Sub RemoveArrows()
                 shp.Delete
             End If
         Next i
-        MsgBox "プレフィックス'" & prefix & "'の矢印を削除しました。", vbInformation
+        'MsgBox "プレフィックス'" & prefix & "'の矢印を削除しました。", vbInformation
     End If
 End Sub
+
+
 
