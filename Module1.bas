@@ -31,22 +31,8 @@ Public Const ROW_TSK_START As Long = 6
 Sub GenerateGanttChart()
     Dim ws As Worksheet
     Dim lastRow As Long, lastCol As Long
-    Dim taskRow As Long, dateCol As Long
-    Dim StartDate As Date, endDate As Date
-    Dim taskStartCol As Long, taskEndCol As Long
-    Dim TaskName As String, TaskNo As String
-    Dim taskPeriod As Long, taskPriority As Long
-    Dim PrevTasks As String
-    Dim Progress As Double
-    Dim startDateRange As Range, endDateRange As Range
-    Dim progressStartCol As Long, progressEndCol As Long
-    Dim progressShape As Shape
-    Dim workerNum As Long
     Dim taskList() As task
-    Dim task As task
-    Dim i As Long, j As Long
-    Dim currentLevel As Integer, previousLevel As Integer
-    Dim taskCount As Long
+    Dim workerNum As Long
     
     ' シートの設定
     Set ws = ActiveSheet
@@ -60,6 +46,31 @@ Sub GenerateGanttChart()
     workerNum = Range(TSK_WORKER_NUM).Value
     
     ' タスクリストの作成
+    taskList = GetTaskList(ws, lastRow)
+    
+    ' スケジューリング処理
+    ScheduleTasks taskList, workerNum
+    
+    ' ガントチャートの描画
+    DrawGanttChart ws, taskList, lastCol
+    
+    MsgBox "ガントチャートの生成が完了しました！", vbInformation
+End Sub
+
+Function GetTaskList(ws As Worksheet, lastRow As Long) As task()
+    Dim taskList() As task
+    Dim taskRow As Integer
+    Dim taskName As String, TaskNo As String
+    Dim taskPeriod As Long, taskPriority As Long
+    Dim PrevTasks As String
+    Dim Progress As Double
+    Dim StartDate As Date
+    Dim task As task
+    Dim i As Long
+    Dim currentLevel As Integer, previousLevel As Integer
+    Dim taskCount As Long
+    
+    ' タスクリストの作成
     taskCount = lastRow - ROW_TSK_START + 1
     ReDim taskList(1 To taskCount)
     previousLevel = 0
@@ -67,8 +78,8 @@ Sub GenerateGanttChart()
     
     ' タスクデータの読み込み
     For taskRow = ROW_TSK_START To lastRow
-        Call GetName(taskRow, TaskName, currentLevel)
-        If TaskName = "" Then Exit For
+        Call GetName(ws, taskRow, taskName, currentLevel)
+        If taskName = "" Then Exit For
         
         TaskNo = ws.Cells(taskRow, COL_NO).Value
         taskPeriod = ws.Cells(taskRow, COL_PERIOD).Value
@@ -80,30 +91,39 @@ Sub GenerateGanttChart()
         ' タスクオブジェクトの作成
         Set task = New task
         task.TaskNo = TaskNo
-        task.TaskName = TaskName
+        task.taskName = taskName
         task.Period = taskPeriod
         task.Priority = taskPriority
         task.PrevTasks = PrevTasks
         task.StartDate = StartDate
         task.Progress = Progress
-        task.isParent = False
+        task.IsParent = False
         
         ' 階層情報の更新
         If currentLevel > previousLevel Then
-            taskList(i-1).isParent = True
+            taskList(i - 1).IsParent = True
         End If
         
         ' タスクリストに追加
-        taskList(i) = task
+        Set taskList(i) = task
         i = i + 1
         previousLevel = currentLevel
     Next taskRow
     
-    ' スケジューリング処理
-    ScheduleTasks taskList, workerNum
+    GetTaskList = taskList
+End Function
+
+Sub DrawGanttChart(ws As Worksheet, taskList() As task, lastCol As Long)
+    Dim taskRow As Long
+    Dim TaskNo As String
+    Dim task As task
+    Dim i As Long
+    Dim taskStartCol As Long, taskEndCol As Long
+    Dim progressStartCol As Long, progressEndCol As Long
+    Dim progressShape As Shape
     
     ' ガントチャートの描画
-    For taskRow = 4 To lastRow
+    For taskRow = 4 To ws.Cells(ws.Rows.Count, COL_NO).End(xlUp).Row
         TaskNo = ws.Cells(taskRow, COL_NO).Value
         Set task = Nothing
         For i = LBound(taskList) To UBound(taskList)
@@ -138,8 +158,6 @@ Sub GenerateGanttChart()
             End If
         End If
     Next taskRow
-    
-    MsgBox "ガントチャートの生成が完了しました！", vbInformation
 End Sub
 
 Function GetDateColumn(ws As Worksheet, dateRow As Long, startCol As Long, endCol As Long, targetDate As Date) As Long
@@ -178,7 +196,7 @@ Sub ScheduleTasks(taskList() As task, workerNum As Long)
     For i = LBound(taskList) To UBound(taskList)
         If Not IsTaskScheduled(taskList(i), scheduledTasks, scheduledCount) Then
             If CanStartTask(taskList(i), scheduledTasks, scheduledCount) Then
-                If taskList(i).isParent Then
+                If taskList(i).IsParent Then
                     ' 親タスクのスケジューリング
                     taskList(i).ScheduledStartDate = currentWeek
                     scheduledCount = scheduledCount + 1
@@ -263,12 +281,11 @@ Sub RemoveArrows()
     End If
 End Sub
 
-Sub GetName(taskRow As Integer, ByRef taskName As String, ByRef taskLevel As Integer)
+Sub GetName(ws As Worksheet, taskRow As Integer, ByRef taskName As String, ByRef taskLevel As Integer)
     Dim i As Long
     Dim n As String
     
     taskName = ""
-    Set ws = ActiveSheet
     
     For i = COL_NAME To COL_NAME + 5
         n = ws.Cells(taskRow, i).Value
@@ -278,3 +295,5 @@ Sub GetName(taskRow As Integer, ByRef taskName As String, ByRef taskLevel As Int
         End If
     Next i
 End Sub
+
+
