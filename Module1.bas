@@ -1,6 +1,34 @@
 Attribute VB_Name = "Module1"
 Option Explicit
 
+'================================================================================
+' å®šæ•°
+'================================================================================
+
+' ã‚¿ã‚¹ã‚¯ã®ID
+Public Const COL_NO As Long = 1
+
+' ã‚¿ã‚¹ã‚¯å„ªå…ˆåº¦ã€5æ®µéšï¼ˆï¼‘ï½ï¼•ï¼‰ã€1ã¯æœ€é«˜å„ªå…ˆåº¦
+Public Const COL_PRIORITY As Long = 2
+
+' å…ˆè¡Œã‚¿ã‚¹ã‚¯ã‚’å®šç¾©ã™ã‚‹
+Public Const COL_PREV_TSK As Long = 3
+
+' ã‚¿ã‚¹ã‚¯ã‚’å®Ÿæ–½ã™ã‚‹æœŸé–“ï¼ˆé€±å˜ä½ï¼‰
+Public Const COL_PERIOD As Long = 4
+
+' ã‚¿ã‚¹ã‚¯ã®åå‰
+Public Const COL_NAME As Long = 5
+
+' å®Ÿéš›ã«ã‚¿ã‚¹ã‚¯ã‚’é–‹å§‹ã—ãŸæ—¥ä»˜
+Public Const COL_REAL_START As Long = 6
+
+' é€²æ—ç‡ï¼ˆï¼…ï¼‰
+Public Const COL_PROGRESS As Long = 7
+
+'================================================================================
+' ãƒ¡ã‚¤ãƒ³ãƒ­ã‚¸ãƒƒã‚¯ (ã“ã“ã«å‡¦ç†ã‚’è¨˜è¿°ã—ã¾ã™)
+'================================================================================
 Sub GenerateGanttChart()
     Dim ws As Worksheet
     Dim lastRow As Long, lastCol As Long
@@ -19,34 +47,34 @@ Sub GenerateGanttChart()
     Dim task As task
     Dim i As Long, j As Long
     
-    ' ƒV[ƒg‚Ì‰Šúİ’è
-    Set ws = ThisWorkbook.Sheets("Sheet1") ' ƒV[ƒg–¼‚ğ•ÏX‚µ‚Ä‚­‚¾‚³‚¢
+    ' ï¿½Vï¿½[ï¿½gï¿½Ìï¿½ï¿½ï¿½ï¿½İ’ï¿½
+    Set ws = ThisWorkbook.Sheets("Sheet1") ' ï¿½Vï¿½[ï¿½gï¿½ï¿½ï¿½ï¿½ÏXï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     'ws.Cells.ClearFormats
     ws.Shapes.Delete
     
-    ' ’è”‚Ì‰Šúİ’è
-    Const TSK_WORKER_NUM_ROW As Long = 1 ' TSK_WORKER_NUM‚Ìs”Ô†
-    Const TSK_DATE_START_ROW As Long = 3 ' TSK_DATE_START‚Ìs”Ô†
-    Const TSK_DATE_START_COL As Long = 10 ' TSK_DATE_START‚Ì—ñ”Ô†iJ—ñj
-    Const TSK_NAME_COL As Long = 5 ' TSK_NAME‚Ì—ñ”Ô†iE—ñj
-    Const TSK_NO_COL As Long = 1 ' TSK_NO‚Ì—ñ”Ô†iA—ñj
-    Const TSK_PERIOD_COL As Long = 4 ' TSK_PERIOD‚Ì—ñ”Ô†iD—ñj
-    Const TSK_PRIORITY_COL As Long = 2 ' TSK_PRIORITY‚Ì—ñ”Ô†iB—ñj
-    Const TSK_PREV_TSK_COL As Long = 3 ' TSK_PREV_TSK‚Ì—ñ”Ô†iC—ñj
-    Const TSK_START_DATE_COL As Long = 16 ' TSK_START_DATE‚Ì—ñ”Ô†iP—ñj
-    Const TSK_PROGRESS_COL As Long = 17 ' TSK_PROGRESS‚Ì—ñ”Ô†iQ—ñj
+    ' ï¿½è”ï¿½Ìï¿½ï¿½ï¿½ï¿½İ’ï¿½
+    Const TSK_WORKER_NUM_ROW As Long = 1 ' TSK_WORKER_NUMï¿½Ìsï¿½Ôï¿½
+    Const TSK_DATE_START_ROW As Long = 3 ' TSK_DATE_STARTï¿½Ìsï¿½Ôï¿½
+    Const TSK_DATE_START_COL As Long = 10 ' TSK_DATE_STARTï¿½Ì—ï¿½Ôï¿½ï¿½iJï¿½ï¿½j
+    Const TSK_NAME_COL As Long = 5 ' TSK_NAMEï¿½Ì—ï¿½Ôï¿½ï¿½iEï¿½ï¿½j
+    Const TSK_NO_COL As Long = 1 ' TSK_NOï¿½Ì—ï¿½Ôï¿½ï¿½iAï¿½ï¿½j
+    Const TSK_PERIOD_COL As Long = 4 ' TSK_PERIODï¿½Ì—ï¿½Ôï¿½ï¿½iDï¿½ï¿½j
+    Const TSK_PRIORITY_COL As Long = 2 ' TSK_PRIORITYï¿½Ì—ï¿½Ôï¿½ï¿½iBï¿½ï¿½j
+    Const TSK_PREV_TSK_COL As Long = 3 ' TSK_PREV_TSKï¿½Ì—ï¿½Ôï¿½ï¿½iCï¿½ï¿½j
+    Const TSK_START_DATE_COL As Long = 16 ' TSK_START_DATEï¿½Ì—ï¿½Ôï¿½ï¿½iPï¿½ï¿½j
+    Const TSK_PROGRESS_COL As Long = 17 ' TSK_PROGRESSï¿½Ì—ï¿½Ôï¿½ï¿½iQï¿½ï¿½j
     
-    ' ÅIs‚ÆÅI—ñ‚Ìæ“¾
+    ' ï¿½ÅIï¿½sï¿½ÆÅIï¿½ï¿½Ìæ“¾
     lastRow = ws.Cells(ws.Rows.Count, TSK_NAME_COL).End(xlUp).Row
     lastCol = ws.Cells(TSK_DATE_START_ROW, ws.Columns.Count).End(xlToLeft).Column
     
-    ' Às‰Â”\•½sƒ^ƒXƒN”‚Ìæ“¾
+    ' ï¿½ï¿½ï¿½sï¿½Â”\ï¿½ï¿½ï¿½sï¿½^ï¿½Xï¿½Nï¿½ï¿½ï¿½Ìæ“¾
     workerNum = ws.Cells(TSK_WORKER_NUM_ROW, TSK_DATE_START_COL).Value
     
-    ' ƒ^ƒXƒNƒŠƒXƒg‚Ì‰Šú‰»
+    ' ï¿½^ï¿½Xï¿½Nï¿½ï¿½ï¿½Xï¿½gï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½
     Set taskList = New Collection
     
-    ' ƒ^ƒXƒNƒf[ƒ^‚Ì“Ç‚İ‚İ
+    ' ï¿½^ï¿½Xï¿½Nï¿½fï¿½[ï¿½^ï¿½Ì“Ç‚İï¿½ï¿½ï¿½
     For taskRow = 4 To lastRow
         If ws.Cells(taskRow, TSK_NAME_COL).Value <> "" Then
             TaskName = ws.Cells(taskRow, TSK_NAME_COL).Value
@@ -57,7 +85,7 @@ Sub GenerateGanttChart()
             StartDate = ws.Cells(taskRow, TSK_START_DATE_COL).Value
             Progress = ws.Cells(taskRow, TSK_PROGRESS_COL).Value / 100
             
-            ' ƒ^ƒXƒNƒIƒuƒWƒFƒNƒg‚Ìì¬
+            ' ï¿½^ï¿½Xï¿½Nï¿½Iï¿½uï¿½Wï¿½Fï¿½Nï¿½gï¿½Ìì¬
             Set task = New task
             task.TaskNo = TaskNo
             task.TaskName = TaskName
@@ -67,15 +95,15 @@ Sub GenerateGanttChart()
             task.StartDate = StartDate
             task.Progress = Progress
             
-            ' ƒ^ƒXƒNƒŠƒXƒg‚É’Ç‰Á
+            ' ï¿½^ï¿½Xï¿½Nï¿½ï¿½ï¿½Xï¿½gï¿½É’Ç‰ï¿½
             taskList.Add task, TaskNo
         End If
     Next taskRow
     
-    ' ƒXƒPƒWƒ…[ƒŠƒ“ƒOŒvZ
+    ' ï¿½Xï¿½Pï¿½Wï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½vï¿½Z
     ScheduleTasks taskList, workerNum
     
-    ' ƒKƒ“ƒgƒ`ƒƒ[ƒg‚Ì•`‰æ
+    ' ï¿½Kï¿½ï¿½ï¿½gï¿½`ï¿½ï¿½ï¿½[ï¿½gï¿½Ì•`ï¿½ï¿½
     For taskRow = 4 To lastRow
         TaskNo = ws.Cells(taskRow, TSK_NO_COL).Value
         On Error Resume Next
@@ -83,14 +111,14 @@ Sub GenerateGanttChart()
         On Error GoTo 0
         
         If Not task Is Nothing Then
-            ' —\’è‚Ì•`‰æ
+            ' ï¿½\ï¿½ï¿½Ì•`ï¿½ï¿½
             taskStartCol = GetDateColumn(ws, TSK_DATE_START_ROW, TSK_DATE_START_COL, lastCol, task.ScheduledStartDate)
             taskEndCol = taskStartCol + task.Period - 1
             If taskStartCol >= TSK_DATE_START_COL And taskEndCol <= lastCol Then
                 ws.Range(ws.Cells(taskRow, taskStartCol), ws.Cells(taskRow, taskEndCol)).Interior.Color = RGB(200, 200, 200)
             End If
             
-            ' ÀÑ‚Ì•`‰æ
+            ' ï¿½ï¿½ï¿½Ñ‚Ì•`ï¿½ï¿½
             If task.StartDate <> 0 Then
                 progressStartCol = GetDateColumn(ws, TSK_DATE_START_ROW, TSK_DATE_START_COL, lastCol, task.StartDate)
                 progressEndCol = progressStartCol + task.Period * task.Progress - 1
@@ -108,7 +136,7 @@ Sub GenerateGanttChart()
         End If
     Next taskRow
     
-    MsgBox "ƒKƒ“ƒgƒ`ƒƒ[ƒg‚Ì¶¬‚ªŠ®—¹‚µ‚Ü‚µ‚½I", vbInformation
+    MsgBox "ï¿½Kï¿½ï¿½ï¿½gï¿½`ï¿½ï¿½ï¿½[ï¿½gï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½ï¿½ï¿½I", vbInformation
 End Sub
 
 Function GetDateColumn(ws As Worksheet, dateRow As Long, startCol As Long, endCol As Long, targetDate As Date) As Long
@@ -130,7 +158,7 @@ Sub ScheduleTasks(taskList As Collection, workerNum As Long)
     Dim taskArray() As task
     Dim i As Long, j As Long
     
-    ' ƒ^ƒXƒN”z—ñ‚Ì‰Šú‰»
+    ' ï¿½^ï¿½Xï¿½Nï¿½zï¿½ï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½
     ReDim taskArray(1 To taskList.Count)
     i = 1
     For Each task In taskList
@@ -138,7 +166,7 @@ Sub ScheduleTasks(taskList As Collection, workerNum As Long)
         i = i + 1
     Next task
     
-    ' ƒ^ƒXƒN”z—ñ‚Ì—Dæ“x‡‚Éƒ\[ƒg
+    ' ï¿½^ï¿½Xï¿½Nï¿½zï¿½ï¿½Ì—Dï¿½ï¿½xï¿½ï¿½ï¿½Éƒ\ï¿½[ï¿½g
     For i = LBound(taskArray) To UBound(taskArray) - 1
         For j = i + 1 To UBound(taskArray)
             If taskArray(i).Priority > taskArray(j).Priority Then
@@ -147,7 +175,7 @@ Sub ScheduleTasks(taskList As Collection, workerNum As Long)
         Next j
     Next i
     
-    ' ƒXƒPƒWƒ…[ƒŠƒ“ƒO
+    ' ï¿½Xï¿½Pï¿½Wï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½O
     Set scheduledTasks = New Collection
     availableWorkers = workerNum
     currentWeek = Now
@@ -219,7 +247,7 @@ Sub RemoveArrows()
                 shp.Delete
             End If
         Next i
-        MsgBox "Š—L–¼ÌˆÈ'" & prefix & "'??“IŒ`ó›ß”í?œB", vbInformation
+        MsgBox "ï¿½ï¿½ï¿½Lï¿½ï¿½ï¿½Ìˆï¿½'" & prefix & "'??ï¿½Iï¿½`ï¿½ï¿½ß”ï¿½?ï¿½ï¿½ï¿½B", vbInformation
     End If
 End Sub
 
