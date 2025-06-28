@@ -51,38 +51,26 @@ Sub GenerateGanttChart()
     Set ws = ActiveSheet
     RemoveArrows
     
-    ' 定数の設定
-    Const TSK_WORKER_NUM_ROW As Long = 1
-    Const TSK_DATE_START_ROW As Long = 3
-    Const TSK_DATE_START_COL As Long = COL_REAL_START
-    Const TSK_NAME_COL As Long = COL_NAME
-    Const TSK_NO_COL As Long = COL_NO
-    Const TSK_PERIOD_COL As Long = COL_PERIOD
-    Const TSK_PRIORITY_COL As Long = COL_PRIORITY
-    Const TSK_PREV_TSK_COL As Long = COL_PREV_TSK
-    Const TSK_START_DATE_COL As Long = COL_REAL_START
-    Const TSK_PROGRESS_COL As Long = COL_PROGRESS
-    
     ' 最終行と最終列の取得
-    lastRow = ws.Cells(ws.Rows.Count, TSK_NAME_COL).End(xlUp).Row
-    lastCol = ws.Cells(TSK_DATE_START_ROW, ws.Columns.Count).End(xlToLeft).Column
+    lastRow = ws.Cells(ws.Rows.Count, COL_NAME).End(xlUp).Row
+    lastCol = ws.Cells(ROW_START_DATE, ws.Columns.Count).End(xlToLeft).Column
     
     ' 作業者数の取得
-    workerNum = ws.Cells(TSK_WORKER_NUM_ROW, TSK_DATE_START_COL).Value
+    workerNum = ws.Cells(ROW_START_DATE, COL_REAL_START).Value
     
     ' タスクリストの作成
     Set taskList = New Collection
     
     ' タスクデータの読み込み
-    For taskRow = 4 To lastRow
-        If ws.Cells(taskRow, TSK_NAME_COL).Value <> "" Then
-            TaskName = ws.Cells(taskRow, TSK_NAME_COL).Value
-            TaskNo = ws.Cells(taskRow, TSK_NO_COL).Value
-            taskPeriod = ws.Cells(taskRow, TSK_PERIOD_COL).Value
-            taskPriority = ws.Cells(taskRow, TSK_PRIORITY_COL).Value
-            PrevTasks = ws.Cells(taskRow, TSK_PREV_TSK_COL).Value
-            StartDate = ws.Cells(taskRow, TSK_START_DATE_COL).Value
-            Progress = ws.Cells(taskRow, TSK_PROGRESS_COL).Value / 100
+    For taskRow = ROW_TSK_START To lastRow
+        If ws.Cells(taskRow, COL_NAME).Value <> "" Then
+            TaskName = ws.Cells(taskRow, COL_NAME).Value
+            TaskNo = ws.Cells(taskRow, COL_NO).Value
+            taskPeriod = ws.Cells(taskRow, COL_PERIOD).Value
+            taskPriority = ws.Cells(taskRow, COL_PRIORITY).Value
+            PrevTasks = ws.Cells(taskRow, COL_PREV_TSK).Value
+            StartDate = ws.Cells(taskRow, COL_REAL_START).Value
+            Progress = ws.Cells(taskRow, COL_PROGRESS).Value / 100
             
             ' タスクオブジェクトの作成
             Set task = New task
@@ -104,24 +92,24 @@ Sub GenerateGanttChart()
     
     ' ガントチャートの描画
     For taskRow = 4 To lastRow
-        TaskNo = ws.Cells(taskRow, TSK_NO_COL).Value
+        TaskNo = ws.Cells(taskRow, COL_NO).Value
         On Error Resume Next
         Set task = taskList(TaskNo)
         On Error GoTo 0
         
         If Not task Is Nothing Then
             ' タスクの描画
-            taskStartCol = GetDateColumn(ws, TSK_DATE_START_ROW, TSK_DATE_START_COL, lastCol, task.ScheduledStartDate)
+            taskStartCol = GetDateColumn(ws, ROW_START_DATE, COL_REAL_START, lastCol, task.ScheduledStartDate)
             taskEndCol = taskStartCol + task.Period - 1
-            If taskStartCol >= TSK_DATE_START_COL And taskEndCol <= lastCol Then
+            If taskStartCol >= COL_REAL_START And taskEndCol <= lastCol Then
                 ws.Range(ws.Cells(taskRow, taskStartCol), ws.Cells(taskRow, taskEndCol)).Interior.Color = RGB(200, 200, 200)
             End If
             
             ' 進捗の描画
             If task.StartDate <> 0 Then
-                progressStartCol = GetDateColumn(ws, TSK_DATE_START_ROW, TSK_DATE_START_COL, lastCol, task.StartDate)
+                progressStartCol = GetDateColumn(ws, ROW_START_DATE, COL_REAL_START, lastCol, task.StartDate)
                 progressEndCol = progressStartCol + task.Period * task.Progress - 1
-                If progressStartCol >= TSK_DATE_START_COL And progressEndCol <= lastCol Then
+                If progressStartCol >= COL_REAL_START And progressEndCol <= lastCol Then
                     Set progressShape = ws.Shapes.AddLine( _
                         ws.Cells(taskRow, progressStartCol).Left + 5, _
                         ws.Cells(taskRow, progressStartCol).Top + 10, _
