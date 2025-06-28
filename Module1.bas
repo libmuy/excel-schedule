@@ -4,27 +4,27 @@ Option Explicit
 '================================================================================
 ' 定数
 '================================================================================
-
+' 実行可能平行タスク数
+Public Const TSK_WORKER_NUM As String = "P2"
 ' タスクのID
 Public Const COL_NO As Long = 1
-
 ' タスク優先度、5段階（１～５）、1は最高優先度
 Public Const COL_PRIORITY As Long = 2
-
 ' 先行タスクを定義する
 Public Const COL_PREV_TSK As Long = 3
-
 ' タスクを実施する期間（週単位）
 Public Const COL_PERIOD As Long = 4
-
 ' タスクの名前
 Public Const COL_NAME As Long = 5
-
 ' 実際にタスクを開始した日付
-Public Const COL_REAL_START As Long = 6
-
+Public Const COL_REAL_START As Long = 16
 ' 進捗率（％）
-Public Const COL_PROGRESS As Long = 7
+Public Const COL_PROGRESS As Long = 17
+' 全体スケジュールの開始日付
+Public Const COL_START_DATE As Long = 18
+Public Const ROW_START_DATE As Long = 5
+' タスクの開始行
+Public Const ROW_TSK_START As Long = 6
 
 '================================================================================
 ' メインロジック (ここに処理を記述します)
@@ -47,34 +47,33 @@ Sub GenerateGanttChart()
     Dim task As task
     Dim i As Long, j As Long
     
-    ' �V�[�g�̏����ݒ�
-    Set ws = ThisWorkbook.Sheets("Sheet1") ' �V�[�g����ύX���Ă�������
-    'ws.Cells.ClearFormats
-    ws.Shapes.Delete
+    ' シートの設定
+    Set ws = ActiveSheet
+    RemoveArrows
     
-    ' �萔�̏����ݒ�
-    Const TSK_WORKER_NUM_ROW As Long = 1 ' TSK_WORKER_NUM�̍s�ԍ�
-    Const TSK_DATE_START_ROW As Long = 3 ' TSK_DATE_START�̍s�ԍ�
-    Const TSK_DATE_START_COL As Long = 10 ' TSK_DATE_START�̗�ԍ��iJ��j
-    Const TSK_NAME_COL As Long = 5 ' TSK_NAME�̗�ԍ��iE��j
-    Const TSK_NO_COL As Long = 1 ' TSK_NO�̗�ԍ��iA��j
-    Const TSK_PERIOD_COL As Long = 4 ' TSK_PERIOD�̗�ԍ��iD��j
-    Const TSK_PRIORITY_COL As Long = 2 ' TSK_PRIORITY�̗�ԍ��iB��j
-    Const TSK_PREV_TSK_COL As Long = 3 ' TSK_PREV_TSK�̗�ԍ��iC��j
-    Const TSK_START_DATE_COL As Long = 16 ' TSK_START_DATE�̗�ԍ��iP��j
-    Const TSK_PROGRESS_COL As Long = 17 ' TSK_PROGRESS�̗�ԍ��iQ��j
+    ' 定数の設定
+    Const TSK_WORKER_NUM_ROW As Long = 1
+    Const TSK_DATE_START_ROW As Long = 3
+    Const TSK_DATE_START_COL As Long = COL_REAL_START
+    Const TSK_NAME_COL As Long = COL_NAME
+    Const TSK_NO_COL As Long = COL_NO
+    Const TSK_PERIOD_COL As Long = COL_PERIOD
+    Const TSK_PRIORITY_COL As Long = COL_PRIORITY
+    Const TSK_PREV_TSK_COL As Long = COL_PREV_TSK
+    Const TSK_START_DATE_COL As Long = COL_REAL_START
+    Const TSK_PROGRESS_COL As Long = COL_PROGRESS
     
-    ' �ŏI�s�ƍŏI��̎擾
+    ' 最終行と最終列の取得
     lastRow = ws.Cells(ws.Rows.Count, TSK_NAME_COL).End(xlUp).Row
     lastCol = ws.Cells(TSK_DATE_START_ROW, ws.Columns.Count).End(xlToLeft).Column
     
-    ' ���s�\���s�^�X�N���̎擾
+    ' 作業者数の取得
     workerNum = ws.Cells(TSK_WORKER_NUM_ROW, TSK_DATE_START_COL).Value
     
-    ' �^�X�N���X�g�̏�����
+    ' タスクリストの作成
     Set taskList = New Collection
     
-    ' �^�X�N�f�[�^�̓ǂݍ���
+    ' タスクデータの読み込み
     For taskRow = 4 To lastRow
         If ws.Cells(taskRow, TSK_NAME_COL).Value <> "" Then
             TaskName = ws.Cells(taskRow, TSK_NAME_COL).Value
@@ -85,7 +84,7 @@ Sub GenerateGanttChart()
             StartDate = ws.Cells(taskRow, TSK_START_DATE_COL).Value
             Progress = ws.Cells(taskRow, TSK_PROGRESS_COL).Value / 100
             
-            ' �^�X�N�I�u�W�F�N�g�̍쐬
+            ' タスクオブジェクトの作成
             Set task = New task
             task.TaskNo = TaskNo
             task.TaskName = TaskName
@@ -95,15 +94,15 @@ Sub GenerateGanttChart()
             task.StartDate = StartDate
             task.Progress = Progress
             
-            ' �^�X�N���X�g�ɒǉ�
+            ' タスクリストに追加
             taskList.Add task, TaskNo
         End If
     Next taskRow
     
-    ' �X�P�W���[�����O�v�Z
+    ' スケジューリング処理
     ScheduleTasks taskList, workerNum
     
-    ' �K���g�`���[�g�̕`��
+    ' ガントチャートの描画
     For taskRow = 4 To lastRow
         TaskNo = ws.Cells(taskRow, TSK_NO_COL).Value
         On Error Resume Next
@@ -111,14 +110,14 @@ Sub GenerateGanttChart()
         On Error GoTo 0
         
         If Not task Is Nothing Then
-            ' �\��̕`��
+            ' タスクの描画
             taskStartCol = GetDateColumn(ws, TSK_DATE_START_ROW, TSK_DATE_START_COL, lastCol, task.ScheduledStartDate)
             taskEndCol = taskStartCol + task.Period - 1
             If taskStartCol >= TSK_DATE_START_COL And taskEndCol <= lastCol Then
                 ws.Range(ws.Cells(taskRow, taskStartCol), ws.Cells(taskRow, taskEndCol)).Interior.Color = RGB(200, 200, 200)
             End If
             
-            ' ���т̕`��
+            ' 進捗の描画
             If task.StartDate <> 0 Then
                 progressStartCol = GetDateColumn(ws, TSK_DATE_START_ROW, TSK_DATE_START_COL, lastCol, task.StartDate)
                 progressEndCol = progressStartCol + task.Period * task.Progress - 1
@@ -136,7 +135,7 @@ Sub GenerateGanttChart()
         End If
     Next taskRow
     
-    MsgBox "�K���g�`���[�g�̐������������܂����I", vbInformation
+    MsgBox "ガントチャートの生成が完了しました！", vbInformation
 End Sub
 
 Function GetDateColumn(ws As Worksheet, dateRow As Long, startCol As Long, endCol As Long, targetDate As Date) As Long
@@ -158,7 +157,7 @@ Sub ScheduleTasks(taskList As Collection, workerNum As Long)
     Dim taskArray() As task
     Dim i As Long, j As Long
     
-    ' �^�X�N�z��̏�����
+    ' タスク配列の作成
     ReDim taskArray(1 To taskList.Count)
     i = 1
     For Each task In taskList
@@ -166,7 +165,7 @@ Sub ScheduleTasks(taskList As Collection, workerNum As Long)
         i = i + 1
     Next task
     
-    ' �^�X�N�z��̗D��x���Ƀ\�[�g
+    ' タスク配列を優先度順にソート
     For i = LBound(taskArray) To UBound(taskArray) - 1
         For j = i + 1 To UBound(taskArray)
             If taskArray(i).Priority > taskArray(j).Priority Then
@@ -175,7 +174,7 @@ Sub ScheduleTasks(taskList As Collection, workerNum As Long)
         Next j
     Next i
     
-    ' �X�P�W���[�����O
+    ' スケジューリング
     Set scheduledTasks = New Collection
     availableWorkers = workerNum
     currentWeek = Now
@@ -247,7 +246,7 @@ Sub RemoveArrows()
                 shp.Delete
             End If
         Next i
-        MsgBox "���L���̈�'" & prefix & "'??�I�`��ߔ�?���B", vbInformation
+        MsgBox "プレフィックス'" & prefix & "'の矢印を削除しました。", vbInformation
     End If
 End Sub
 
