@@ -52,3 +52,35 @@
 - 実績
   矢印で、現在の進捗を示す
   矢印の開始と終了は、TSK_START_DATE 列に記載した日付（開始実績日）とTSK_PROGRESS列に記載した％（進捗率）で計算する
+
+
+
+abtout the progress bar drawing
+	draw 2 lines
+		one line represent already done part (blue)
+		another line represent not done part (black)
+	
+	already done part line
+		the start date: 
+			user inputed real task start date which is in column COL_REAL_START
+			this date may be not the start of a week, in case of that the start of the line should be calculate like:
+				radio = <real start date> / (<start of week> + 5)
+				start_x = cell.left + (cell.width * radio)
+		the end date
+			start date + (period * progress)
+			
+		height
+			cell.top + (cell.height / 2)
+			
+	
+	not done part line
+		the start date: 
+			equal to the end of already done part line
+		the end date
+			real start date + period
+			
+		height
+			cell.top + (cell.height / 2)
+			
+
+
