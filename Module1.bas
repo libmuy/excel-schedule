@@ -30,6 +30,10 @@ Public Const ROW_TSK_START As Long = 6
 ' Progress bar shape prefix
 Public Const PROGRESS_BAR_PREFIX As String = "ProgressBar_"
 
+' 予定塗りつぶし色 RGB(200,200,200)
+Public Const SCHEDULE_COLOR As Long = 13158600
+
+
 '================================================================================
 ' メインロジック (ここに処理を記述します)
 '================================================================================
@@ -50,7 +54,7 @@ Sub GenerateGanttChart()
     workerNum = Range(TSK_WORKER_NUM).Value
     
     ' タスクリストの作成
-    taskList = GetTaskList(ws, lastRow)
+    taskList = GetTaskList(ws, lastRow, False)
     
     ' スケジューリング処理
     ScheduleTasks taskList, workerNum
@@ -61,7 +65,7 @@ Sub GenerateGanttChart()
     'MsgBox "ガントチャートの生成が完了しました！", vbInformation
 End Sub
 
-Function GetTaskList(ws As Worksheet, lastRow As Long) As task()
+Function GetTaskList(ws As Worksheet, lastRow As Long, getScheduledDate As Boolean) As task()
     Dim taskList() As task
     Dim taskRow As Integer
     Dim taskName As String, TaskNo As String
@@ -70,9 +74,13 @@ Function GetTaskList(ws As Worksheet, lastRow As Long) As task()
     Dim progress As Double
     Dim StartDate As Date
     Dim tsk As task
-    Dim i As Long
+    Dim i As Long, j As Long
     Dim currentLevel As Integer, previousLevel As Integer
     Dim taskCount As Long
+    Dim lastCol As Long
+    
+    
+    lastCol = ws.Cells(ROW_START_DATE, ws.Columns.Count).End(xlToLeft).Column
     
     ' タスクリストの作成
     taskCount = lastRow - ROW_TSK_START + 1
@@ -119,6 +127,16 @@ Function GetTaskList(ws As Worksheet, lastRow As Long) As task()
             taskList(i - 1).IsParent = True
         End If
         
+        '塗りつぶしから予定日を探す
+        If getScheduledDate Then
+            For j = COL_START_DATE To lastCol
+                If ws.Cells(taskRow, j).Interior.Color = SCHEDULE_COLOR Then
+                    tsk.scheduledStartDate = ws.Cells(ROW_START_DATE, j).Value
+                    Exit For
+                End If
+            Next j
+        End If
+        
         ' タスクリストに追加
         Set taskList(i) = tsk
         i = i + 1
@@ -154,7 +172,7 @@ Sub DrawGanttChart(ws As Worksheet, taskList() As task, lastRow As Long, lastCol
             taskStartCol = GetDateColumn(ws, lastCol, task.scheduledStartDate)
             taskEndCol = taskStartCol + task.period - 1
             If taskStartCol >= COL_START_DATE And taskEndCol <= lastCol Then
-                ws.Range(ws.Cells(taskRow, taskStartCol), ws.Cells(taskRow, taskEndCol)).Interior.Color = RGB(200, 200, 200)
+                ws.Range(ws.Cells(taskRow, taskStartCol), ws.Cells(taskRow, taskEndCol)).Interior.Color = SCHEDULE_COLOR
             End If
         End If
     Next taskRow
@@ -177,7 +195,7 @@ Sub DrawProgressBar(ws As Worksheet, task As task, taskRow As Long, lastCol As L
     Dim doneEndX As Double
     Dim endX As Double
 
-    If task.StartDate = 0 Then Exit Sub
+    If task.IsParent Then Exit Sub
 
     realStartDate = task.StartDate
     scheduledStartDate = task.scheduledStartDate
@@ -481,12 +499,7 @@ Public Sub DrawAllProgressBars()
     Set ws = ActiveSheet
     lastRow = ws.Cells(ws.Rows.Count, COL_NO).End(xlUp).Row
     lastCol = ws.Cells(ROW_START_DATE, ws.Columns.Count).End(xlToLeft).Column
-    taskList = GetTaskList(ws, lastRow)
-
-    ' 作業者数の取得
-    workerNum = Range(TSK_WORKER_NUM).Value
-    ' スケジューリング処理
-    ScheduleTasks taskList, workerNum
+    taskList = GetTaskList(ws, lastRow, True)
 
     ClearProgressBar
     
