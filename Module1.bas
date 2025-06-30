@@ -69,7 +69,7 @@ Function GetTaskList(ws As Worksheet, lastRow As Long) As task()
     Dim PrevTasks As String
     Dim progress As Double
     Dim StartDate As Date
-    Dim task As task
+    Dim tsk As task
     Dim i As Long
     Dim currentLevel As Integer, previousLevel As Integer
     Dim taskCount As Long
@@ -103,15 +103,16 @@ Function GetTaskList(ws As Worksheet, lastRow As Long) As task()
         End If
         
         ' タスクオブジェクトの作成
-        Set task = New task
-        task.TaskNo = TaskNo
-        task.taskName = taskName
-        task.period = taskPeriod
-        task.Priority = taskPriority
-        task.PrevTasks = PrevTasks
-        task.StartDate = StartDate
-        task.progress = progress
-        task.IsParent = False
+        Set tsk = New task
+        tsk.TaskNo = TaskNo
+        tsk.taskName = taskName
+        tsk.period = taskPeriod
+        tsk.Priority = taskPriority
+        tsk.PrevTasks = PrevTasks
+        tsk.StartDate = StartDate
+        tsk.progress = progress
+        tsk.IsParent = False
+        tsk.level = currentLevel
         
         ' 階層情報の更新
         If currentLevel > previousLevel Then
@@ -119,7 +120,7 @@ Function GetTaskList(ws As Worksheet, lastRow As Long) As task()
         End If
         
         ' タスクリストに追加
-        Set taskList(i) = task
+        Set taskList(i) = tsk
         i = i + 1
         previousLevel = currentLevel
     Next taskRow
@@ -174,7 +175,7 @@ Sub DrawProgressBar(ws As Worksheet, task As task, taskRow As Long, lastCol As L
     Dim donePeriod As Double
     Dim notDonePeriod As Double
     Dim doneEndX As Double
-    Dim notDoneEndX As Double
+    Dim endX As Double
 
     If task.StartDate = 0 Then Exit Sub
 
@@ -222,7 +223,7 @@ Sub DrawProgressBar(ws As Worksheet, task As task, taskRow As Long, lastCol As L
     doneEndX = doneEndCell.Left + (doneEndCell.Width * (doneRadio - Int(doneRadio)))
     
     Set notDoneEndCell = Cells(taskRow, progressStartCol + period)
-    notDoneEndX = notDoneEndCell.Left + notDoneEndCell.Width * radio
+    endX = notDoneEndCell.Left + notDoneEndCell.Width * radio
 
     ' 完了部分のバーを描画
     If donePeriod > 0 And progress > 0 Then
@@ -236,10 +237,13 @@ Sub DrawProgressBar(ws As Worksheet, task As task, taskRow As Long, lastCol As L
     End If
 
     ' 未完了部分のバーを描画
-    Set notDoneShape = ws.Shapes.AddLine(doneEndX, midY, notDoneEndX, midY)
+    Set notDoneShape = ws.Shapes.AddLine(doneEndX, midY, endX, midY)
     notDoneShape.Line.ForeColor.RGB = RGB(0, 0, 0)
     notDoneShape.Line.Weight = 2
     notDoneShape.Name = PROGRESS_BAR_PREFIX & "notdone_" & task.TaskNo & "_" & taskRow
+    
+    task.startX = startX
+    task.endX = endX
 End Sub
 
 Function GetDateColumn(ws As Worksheet, endCol As Long, targetDate As Date) As Long
@@ -466,8 +470,13 @@ Public Sub DrawAllProgressBars()
     Dim taskRow As Long
     Dim TaskNo As String
     Dim task As task
-    Dim i As Long
+    Dim i As Long, j As Long
     Dim workerNum As Long
+    Dim startX As Double
+    Dim endX As Double
+    Dim midY As Double
+    Dim r As Range
+    Dim sh As Shape
 
     Set ws = ActiveSheet
     lastRow = ws.Cells(ws.Rows.Count, COL_NO).End(xlUp).Row
@@ -495,41 +504,106 @@ Public Sub DrawAllProgressBars()
         End If
     Next taskRow
 
-    ' Draw dashed line for parent tasks
-    Dim parentIdx As Long, childIdx As Long
-    For parentIdx = LBound(taskList) To UBound(taskList)
-        If taskList(parentIdx).IsParent Then
-            Dim childStartCol As Long, childEndCol As Long
-            Dim foundChild As Boolean
-            foundChild = False
-            ' Find the leftmost and rightmost columns of all child tasks
-            For childIdx = parentIdx + 1 To UBound(taskList)
-                If taskList(childIdx).IsParent Then Exit For
-                If taskList(childIdx).scheduledStartDate <> 0 Then
-                    Dim thisStartCol As Long, thisEndCol As Long
-                    thisStartCol = GetDateColumn(ws, lastCol, taskList(childIdx).scheduledStartDate)
-                    thisEndCol = thisStartCol + taskList(childIdx).period - 1
-                    If Not foundChild Or thisStartCol < childStartCol Then childStartCol = thisStartCol
-                    If Not foundChild Or thisEndCol > childEndCol Then childEndCol = thisEndCol
-                    foundChild = True
-                End If
-            Next childIdx
-            If foundChild Then
-                Dim parentRow As Long
-                parentRow = ROW_TSK_START + parentIdx - 1
-                Dim startCell As Range, endCell As Range
-                Set startCell = ws.Cells(parentRow, childStartCol)
-                Set endCell = ws.Cells(parentRow, childEndCol)
-                Dim y As Double
-                y = startCell.Top + (startCell.Height / 2)
-                Dim dashLine As Shape
-                Set dashLine = ws.Shapes.AddLine(startCell.Left, y, endCell.Left + endCell.Width, y)
-                dashLine.Line.ForeColor.RGB = RGB(128, 128, 128)
-                dashLine.Line.Weight = 2
-                dashLine.Line.DashStyle = msoLineDash
-                dashLine.Name = PROGRESS_BAR_PREFIX & "parent_" & taskList(parentIdx).TaskNo & "_" & parentRow
+
+    ' タスク配列をタスクNo順にソート
+    For i = LBound(taskList) To UBound(taskList) - 1
+        For j = i + 1 To UBound(taskList)
+            If CInt(taskList(i).TaskNo) > CInt(taskList(j).TaskNo) Then
+                Swap taskList(i), taskList(j)
             End If
+        Next j
+    Next i
+    
+    
+    For i = LBound(taskList) To UBound(taskList)
+        startX = taskList(i).startX
+        endX = taskList(i).endX
+        Debug.Print "Child :" & taskList(i).TaskNo & ", start:" & startX & ", end:" & endX
+    Next i
+    
+    i = LBound(taskList)
+    Do While i <= UBound(taskList)
+        If taskList(i).IsParent Then
+            Call GetTaskDrawRange(taskList, i, j)
+            i = j + 1
+        Else
+            i = i + 1
         End If
-    Next parentIdx
+    Loop
+    
+    
+    For i = LBound(taskList) To UBound(taskList)
+        startX = taskList(i).startX
+        endX = taskList(i).endX
+        Debug.Print "Task :" & taskList(i).TaskNo & ", start:" & startX & ", end:" & endX
+        
+        
+        
+        ' 親進捗バーを描画
+        If taskList(i).IsParent Then
+            startX = taskList(i).startX
+            endX = taskList(i).endX
+            Set r = ws.Cells(ROW_TSK_START + i - 1, COL_NAME)
+            midY = r.Top + (r.Height / 2)
+            Set sh = ws.Shapes.AddLine(startX, midY, endX, midY)
+            sh.Line.ForeColor.RGB = RGB(110, 110, 110)
+            sh.Line.BeginArrowheadStyle = msoArrowheadDiamond
+            sh.Line.EndArrowheadStyle = msoArrowheadDiamond
+            sh.Line.DashStyle = msoLineDash
+            sh.Line.Weight = 2
+            sh.Name = PROGRESS_BAR_PREFIX & "parent_" & task.TaskNo & "_" & taskRow
+            
+        End If
+        
+    Next i
 End Sub
+
+
+Sub GetTaskDrawRange(list() As task, idx As Long, ByRef endIdx As Long)
+    Dim i As Long
+    Dim maxIdx As Long
+    Dim startX As Double, endX As Double
+    
+    maxIdx = UBound(list)
+    endIdx = idx
+    
+    If idx >= maxIdx Then Exit Sub
+    
+    i = idx + 1
+    startX = 9999999
+    endX = -1
+    Do While i <= maxIdx
+    
+        If list(i).level > list(idx).level Then
+            If list(i).IsParent Then
+                Call GetTaskDrawRange(list, i, endIdx)
+                If endIdx = i Then Exit Sub
+                startX = MinValue(startX, list(i).startX)
+                endX = MaxValue(endX, list(i).endX)
+                list(idx).startX = startX
+                list(idx).endX = endX
+            Else
+                endIdx = i
+                startX = MinValue(startX, list(i).startX)
+                endX = MaxValue(endX, list(i).endX)
+            End If
+        Else
+            list(idx).startX = startX
+            list(idx).endX = endX
+            Exit Sub
+        End If
+        
+        i = endIdx + 1
+    Loop
+End Sub
+
+Function MaxValue(a As Double, b As Double) As Double
+    MaxValue = a
+    If a < b Then MaxValue = b
+End Function
+
+Function MinValue(a As Double, b As Double) As Double
+    MinValue = a
+    If a > b Then MinValue = b
+End Function
 
