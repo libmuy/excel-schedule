@@ -84,3 +84,22 @@ abtout the progress bar drawing
 			
 
 
+
+I want to correct this scheduling algorithm with below algorithm
+do you think this algorithm is OK? 
+1. sort tasks with priority
+2. loop with week from start to end of all range of weeks
+	1. schedule task within current available worker numbers
+	2. skip task if its previous task is not done
+	3. if there is no available worker shift to next week
+
+
+
+update progress from redmine
+* the column of task's redmine id is COL_REDMINE_ID
+* the format of redmine id is: <RepoID>:<TicketId>
+* use GetRedmineIssueProgress() to get progress of task in redmine
+* create a sub get all task's redmine progress and update to task's progress column(COL_PROGRESS)
+  1. loop from first task to last task
+  2. if redmine id is not empty get redmine progress
+  3. if get progress succeeded update the progress column
