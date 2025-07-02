@@ -1,5 +1,3 @@
-
-
 ' すべてのタスクの進捗バーを描画するサブルーチン
 Public Sub DrawAllProgressBars()
     Dim ws As Worksheet
@@ -23,7 +21,7 @@ Public Sub DrawAllProgressBars()
 
     taskList = GetTaskList(ws, lastRow, True)
 
-    ClearProgressBar
+    ClearProgressBar ws
     
     For taskRow = ROW_TSK_START To lastRow
         TaskNo = ws.Cells(taskRow, COL_NO).Value
@@ -85,9 +83,35 @@ Public Sub DrawAllProgressBars()
         End If
         
     Next i
+
+    ' Draw vertical line for current week
+    DrawCurrentWeekLine ws, lastCol, lastRow
 End Sub
 
+' --- Draw vertical line for current week ---
+Sub DrawCurrentWeekLine(ws As Worksheet, lastCol As Long, lastRow As Long)
+    Dim currentDate As Date
+    Dim col As Long
+    Dim cell As Range
+    Dim x As Double
+    Dim y1 As Double, y2 As Double
+    Dim sh As Shape
 
+    currentDate = Date
+    ' Use GetDateColumn to find the column for the current week
+    col = GetDateColumn(ws, lastCol, currentDate)
+    If col = -1 Then Exit Sub
+
+    Set cell = ws.Cells(ROW_TSK_START, col)
+    x = cell.Left + cell.Width / 2
+    y1 = ws.Cells(ROW_TSK_START, 1).Top
+    y2 = ws.Cells(lastRow, 1).Top + ws.Cells(lastRow, 1).Height
+
+    Set sh = ws.Shapes.AddLine(x, y1, x, y2)
+    sh.Line.ForeColor.RGB = RGB(255, 0, 0)
+    sh.Line.Weight = 2
+    sh.Name = PROGRESS_BAR_PREFIX & "current_week"
+End Sub
 
 Sub DrawProgressBar(ws As Worksheet, task As task, taskRow As Long, lastCol As Long)
     Dim progressStartCol As Long, progressEndCol As Long
@@ -174,26 +198,6 @@ Sub DrawProgressBar(ws As Worksheet, task As task, taskRow As Long, lastCol As L
     
     task.startX = startX
     task.endX = endX
-End Sub
-
-Sub ClearProgressBar()
-    Dim ws As Worksheet
-    Dim shp As Shape
-    Dim i As Long
-    Dim prefix As String
-
-    prefix = PROGRESS_BAR_PREFIX
-    Set ws = ActiveSheet
-
-    If ws.Shapes.Count > 0 Then
-        For i = ws.Shapes.Count To 1 Step -1
-            Set shp = ws.Shapes(i)
-            If Left(shp.Name, Len(prefix)) = prefix Then
-                shp.Delete
-            End If
-        Next i
-        'MsgBox "プレフィックス'" & prefix & "'の矢印を削除しました。", vbInformation
-    End If
 End Sub
 
 Sub GetTaskDrawRange(list() As task, idx As Long, ByRef endIdx As Long)
